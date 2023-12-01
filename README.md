@@ -54,7 +54,11 @@ In this project, I installed CUDA 12.1
 
 ### Scene: PythonExecuteScene.unity
 
-### script
+#### script
 [C# script](unity_python/Assets/Scripts/PythonExecute.cs)
 
 [python script](unity_python/Assets/StreamingAssets/python/python_scripts/test.py)
+
+
+#### result
+![Alt text](./readme_img/PythonExecuteSceneResult.png)
