@@ -8,6 +8,13 @@ Execute python on unity
 ```
 C:\Users\[username]\AppData\Local\Programs\Python\Python39/python.exe
 ```
+## vscode linting
+File-Open Folder
+
+change interpreter to venv
+![vscode_interpreter_select](readme_img/vscode_interpreter_select.png)
+
+
 ## you should install venv manually
 
 ```
@@ -62,3 +69,16 @@ In this project, I installed CUDA 12.1
 
 #### result
 ![Alt text](./readme_img/PythonExecuteSceneResult.png)
+
+
+# Ball balancing project
+
+input:
+ball position (x,y,z), target position(x,z), current plate Euler angle (rx,rz), rotation speed(rad/s?)
+
+- Do we need ball speed?
+
+-> float[3+2+2+1]
+
+output:
+target Euler angle (x,z)
