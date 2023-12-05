@@ -9,14 +9,22 @@ public class BallBalancingSystem : MonoBehaviour
 {
     [SerializeField] Rigidbody BallRigidBody;
     [SerializeField] Rigidbody PlateRigidBody;
+    [SerializeField] GameObject TargetVisualization;
     [SerializeField] float PlateAngularSpeed = 30f;
     [SerializeField] float DeltaTime;
+    [SerializeField] Material TargetInMaterial;
+    [SerializeField] Material TargetOutMaterial;
     System.Diagnostics.Process PythonProcess;
     bool ProcessAlive = false;
     Thread ReadThread;
     Thread WriteThread;
+    float TargetThreshold = 0.1f;
     void Start()
     {
+        TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
+        TargetVisualization.transform.localScale = Vector3.one * (BallRigidBody.transform.localScale.x + TargetThreshold * 2);
+        TargetVisualization.GetComponent<SphereCollider>().isTrigger = true;
+
         DeltaTime = Time.deltaTime;
 
         TargetPosition = new Vector3(0, 0, 0.5f);
@@ -34,81 +42,6 @@ public class BallBalancingSystem : MonoBehaviour
         PythonProcess.StartInfo.RedirectStandardOutput = true;
         PythonProcess.StartInfo.RedirectStandardInput = true;
         PythonProcess.StartInfo.RedirectStandardError = true;
-        /*
-        PythonProcess.OutputDataReceived += (object sender, System.Diagnostics.DataReceivedEventArgs e) =>
-        {
-            Debug.Log($"python: {e.Data}");
-            if (simulationState != SimulationState.NEED_INITIALIZING)
-            {
-                switch (e.Data)
-                {
-                    case "/inputRequest,state":
-                        {
-                            //3+3+2+3 = 
-                            PythonProcess.StandardInput.WriteLine($"{Vector3ToString(BallPosition)},{Vector3ToString(BallSpeed)},{PlateRX},{PlateRZ},{Vector3ToString(TargetPosition)},{PlateAngularSpeed}");
-
-                            break;
-                        }
-                    case "/inputRequest,reward":
-                        {
-                            PythonProcess.StandardInput.WriteLine($"{Reward}");
-
-                            break;
-                        }
-                    case "/inputRequest,done":
-                        {
-                            bool done = simulationState == SimulationState.DONE;
-                            PythonProcess.StandardInput.WriteLine($"{done}");
-                            if (done)
-                            {
-                                simulationState = SimulationState.NEED_INITIALIZING;
-                            }
-                            break;
-                        }
-                    case string ac when ac.Contains("/output,action"):
-                        {
-                            var splitString = ac.Split(",");
-                            var action = int.Parse(splitString[2]);
-                            switch (action)
-                            {
-                                case 0:
-                                    {
-                                        PlateRX += PlateAngularSpeed * Time.deltaTime;
-                                        break;
-                                    }
-                                case 1:
-                                    {
-                                        PlateRX -= PlateAngularSpeed * Time.deltaTime;
-                                        break;
-                                    }
-                                case 2:
-                                    {
-
-                                        PlateRZ += PlateAngularSpeed * Time.deltaTime;
-                                        break;
-                                    }
-                                case 3:
-                                    {
-                                        PlateRZ -= PlateAngularSpeed * Time.deltaTime;
-                                        break;
-                                    }
-
-                            }
-                            break;
-                        }
-                    default:
-                        {
-                            Debug.Log($"python(filter): {e.Data}");
-                            break;
-                        }
-                }
-            }
-        };
-        */
-
-
-
-
 
         Debug.Log("Process start!");
         PythonProcess.Start();
@@ -139,9 +72,15 @@ public class BallBalancingSystem : MonoBehaviour
                 Thread.Sleep(15);
                 continue;
             }
-            Debug.Log($"python(all): {readLine}|{readLine.Length}");
+            //Debug.Log($"python(all): {readLine}|{readLine.Length}");
             switch (readLine)
             {
+                case "/inputRequest;modelPath":
+                    {
+                        PythonProcess.StandardInput.WriteLine($"{Application.streamingAssetsPath}/python/pytorch_models/ballbalancing_model.pth");
+
+                        break;
+                    }
                 case "/inputRequest;state":
                     {
                         //3+3+2+3+1 = 12
@@ -159,7 +98,7 @@ public class BallBalancingSystem : MonoBehaviour
                 case "/inputRequest;done":
                     {
                         bool done = simulationState == SimulationState.DONE;
-                        Debug.Log($"done:{done}");
+                        //Debug.Log($"done:{done}");
                         PythonProcess.StandardInput.WriteLine($"{done}");
                         if (done)
                         {
@@ -198,9 +137,23 @@ public class BallBalancingSystem : MonoBehaviour
                         }
                         break;
                     }
+                case string ac when ac.Contains("/errorOutput"):
+                    {
+                        var splitString = ac.Split(";");
+                        var errorString = splitString[1];
+                        Debug.Log($"python(filter-error): {errorString}");
+                        break;
+                    }
+                case string ac when ac.Contains("/infoOutput"):
+                    {
+                        var splitString = ac.Split(";");
+                        var infoString = splitString[1];
+                        Debug.Log($"python(filter-info): {infoString}");
+                        break;
+                    }
                 default:
                     {
-                        Debug.Log($"python(filter-nonoperation): {readLine}");
+                        //Debug.Log($"python(filter-nonoperation): {readLine}");
                         break;
                     }
             }
@@ -234,10 +187,16 @@ public class BallBalancingSystem : MonoBehaviour
         DONE
     }
     [SerializeField] SimulationState simulationState = SimulationState.NEED_INITIALIZING;
+    [SerializeField] long ContactStartTimeMillis;
+    [SerializeField] long CurrentTime;
+    [SerializeField] long EphisodStartTime;
+    [SerializeField] bool PrevContacted = false;
     void Update()
     {
+        TargetVisualization.transform.position = TargetPosition;
         if (simulationState == SimulationState.NEED_INITIALIZING)
         {
+            TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
             PlateRX = 0f;
             PlateRZ = 0f;
             Reward = 0f;
@@ -245,6 +204,13 @@ public class BallBalancingSystem : MonoBehaviour
             BallRigidBody.velocity = new Vector3(0, 0f, 0);
             BallRigidBody.angularVelocity = new Vector3(0, 0f, 0);
             simulationState = SimulationState.RUNNING;
+
+            float xTarget = Random.Range(-0.4f, 0.4f);
+            float zTarget = Random.Range(-0.4f, 0.4f);
+            TargetPosition = new Vector3(xTarget,0.05f,zTarget);
+            TargetVisualization.transform.position = TargetPosition;
+            PrevContacted = false;
+            EphisodStartTime = CurrentTime;
         }
         else if (simulationState == SimulationState.RUNNING)
         {
@@ -261,15 +227,45 @@ public class BallBalancingSystem : MonoBehaviour
             {
                 float xDist = (TargetPosition.x - BallPosition.x);
                 float zDist = (TargetPosition.z - BallPosition.z);
-                Reward = Mathf.Exp(-(xDist * xDist + zDist * zDist));
-                if((xDist * xDist + zDist * zDist) < 0.0001f)
+                //Reward = Mathf.Exp(-(xDist * xDist + zDist * zDist)) * 0.1f;
+                if ((xDist * xDist + zDist * zDist) < TargetThreshold * TargetThreshold)
                 {
-                    Debug.Log("System: Done due to ball goal");
+                    if (!PrevContacted)
+                    {
+                        TargetVisualization.GetComponent<Renderer>().material = TargetInMaterial;
+                    }
+                    var timePassedFromContact = CurrentTime - ContactStartTimeMillis;
+                    if (PrevContacted && timePassedFromContact > 5000)//5√  ¿ÃªÛ
+                    {
+                        Debug.Log("System: Done due to ball goal");
+                        simulationState = SimulationState.DONE;
+                    }
+                    if (!PrevContacted)
+                    {
+                        ContactStartTimeMillis = CurrentTime;
+                    }
+                    Reward = timePassedFromContact / 1000f;
+                    PrevContacted = true;
+                }
+                else
+                {
+                    if (PrevContacted)
+                    {
+                        TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
+                    }
 
-                    simulationState = SimulationState.DONE;
+                    Reward = -0.01f;
+                    PrevContacted = false;
+                    if (CurrentTime - EphisodStartTime > 20 * 1000)
+                    {
+                        Debug.Log("System: Done due to TimeOver");
+                        Reward = -1f;
+                        simulationState = SimulationState.DONE;
+                    }
                 }
             }
         }
+        CurrentTime += (long)(Time.deltaTime * 1000f);
     }
     string Vector3ToString(Vector3 vector3)
     {

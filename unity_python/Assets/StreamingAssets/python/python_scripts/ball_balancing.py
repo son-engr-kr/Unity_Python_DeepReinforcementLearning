@@ -7,17 +7,20 @@ from collections import namedtuple, deque
 import torch.nn.functional as F
 import itertools
 import traceback
+import os
 # 신경망 정의
 class DQN(nn.Module):
     def __init__(self, state_size, action_size):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(state_size, 64)
+        self.fc11 = nn.Linear(64, 64)
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(64, 64)
         self.fc3 = nn.Linear(64, action_size)
 
     def forward(self, x):
         x = self.relu(self.fc1(x))
+        x = self.relu(self.fc11(x))
         x = self.relu(self.fc2(x))
         return self.fc3(x)
 
@@ -52,9 +55,27 @@ class DQNAgent:
         self.eps_end = 0.05
         self.eps_decay = 200
         self.steps_done = 0
+        self.model_path = ""
+
+
+        print("/inputRequest;modelPath", flush=True)
+
+        self.model_path = input()
+        print(f"/inputEcho;modelPath;{self.model_path}", flush=True)
+
+        if os.path.isfile(self.model_path):
+            self.policy_net.load_state_dict(torch.load(self.model_path))
+            self.policy_net.train()
+            print(f"/infoOutput;model loaded", flush=True)
+
+        else:
+            print(f"/infoOutput;No saved model found. Starting with a new model.", flush=True)
 
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
+    def save_model(self):
+        torch.save(self.policy_net.state_dict(), self.model_path)
+        print(f"/infoOutput;Model saved", flush=True)
 
     def select_action(self, state):
         sample = random.random()
@@ -149,11 +170,12 @@ def train(agent, episodes, state_size, action_size):
             # 대상 신경망 업데이트
             if episode % TARGET_UPDATE == 0:
                 agent.target_net.load_state_dict(agent.policy_net.state_dict())
+                agent.save_model()
     except Exception as e:
         tb = traceback.format_exc()
-        print(f"/debugOutput: {tb}")
+        print(f"/errorOutput;{tb}")
 # Hyperparameters
-EPISODES = 500
+EPISODES = 1000000
 STATE_SIZE = 12  # 상태 크기 예시
 ACTION_SIZE = 4  # 행동 크기 예시
 TARGET_UPDATE = 10

@@ -74,11 +74,23 @@ In this project, I installed CUDA 12.1
 # Ball balancing project
 
 input:
-ball position (x,y,z), target position(x,z), current plate Euler angle (rx,rz), rotation speed(rad/s?)
 
-- Do we need ball speed?
+ball position (x,y,z), ball speed (x,y,z), target position(x,y,z), current plate Euler angle (rx,rz), rotation speed(rad/s?)
 
--> float[3+2+2+1]
+3+3+3+2+1 = 12
+```C#
+PythonProcess.StandardInput.WriteLine($"{Vector3ToString(BallPosition)},{Vector3ToString(BallSpeed)},{PlateRX},{PlateRZ},{Vector3ToString(TargetPosition)},{PlateAngularSpeed}");
+
+```
 
 output:
-target Euler angle (x,z)
+
+4-Action (RX+, RX-, RZ+, RZ-)
+
+## Photo
+![ballbalancing_capture](readme_img/ballbalancing_capture.png)
+
+## pytorch model path
+```
+unity_python\Assets\StreamingAssets\python\pytorch_models/ballbalancing_model.pth
+```

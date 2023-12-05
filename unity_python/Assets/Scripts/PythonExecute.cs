@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using UnityEngine;
-using static UnityEditor.Rendering.CameraUI;
 
 public class PythonExecute : MonoBehaviour
 {
