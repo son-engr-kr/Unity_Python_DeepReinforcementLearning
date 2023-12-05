@@ -4,6 +4,7 @@ using System.Threading;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 public class BallBalancingSystem : MonoBehaviour
 {
@@ -19,8 +20,12 @@ public class BallBalancingSystem : MonoBehaviour
     Thread ReadThread;
     Thread WriteThread;
     float TargetThreshold = 0.1f;
+    Label LabelSuccessRate;
     void Start()
     {
+        var root = GetComponent<UIDocument>().rootVisualElement;
+        LabelSuccessRate = root.Q<Label>("LabelSuccessRate");
+
         TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
         TargetVisualization.transform.localScale = Vector3.one * (BallRigidBody.transform.localScale.x + TargetThreshold * 2);
         TargetVisualization.GetComponent<SphereCollider>().isTrigger = true;
@@ -191,6 +196,9 @@ public class BallBalancingSystem : MonoBehaviour
     [SerializeField] long CurrentTime;
     [SerializeField] long EphisodStartTime;
     [SerializeField] bool PrevContacted = false;
+
+    int SuccessCount = 0;
+    int FailCount = 0;
     void Update()
     {
         TargetVisualization.transform.position = TargetPosition;
@@ -211,6 +219,14 @@ public class BallBalancingSystem : MonoBehaviour
             TargetVisualization.transform.position = TargetPosition;
             PrevContacted = false;
             EphisodStartTime = CurrentTime;
+            if(SuccessCount + FailCount == 0)
+            {
+                LabelSuccessRate.text = "---%";
+            }
+            else
+            {
+                LabelSuccessRate.text = $"{SuccessCount / (float)(SuccessCount + FailCount) * 100f:n1}%";
+            }
         }
         else if (simulationState == SimulationState.RUNNING)
         {
@@ -222,6 +238,8 @@ public class BallBalancingSystem : MonoBehaviour
                 Debug.Log("System: Done due to ball falling");
                 Reward = -1f;
                 simulationState = SimulationState.DONE;
+                FailCount++;
+
             }
             else
             {
@@ -239,6 +257,7 @@ public class BallBalancingSystem : MonoBehaviour
                     {
                         Debug.Log("System: Done due to ball goal");
                         simulationState = SimulationState.DONE;
+                        SuccessCount++;
                     }
                     if (!PrevContacted)
                     {
@@ -261,6 +280,7 @@ public class BallBalancingSystem : MonoBehaviour
                         Debug.Log("System: Done due to TimeOver");
                         Reward = -1f;
                         simulationState = SimulationState.DONE;
+                        FailCount++;
                     }
                 }
             }
