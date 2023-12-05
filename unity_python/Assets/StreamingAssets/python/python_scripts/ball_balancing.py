@@ -64,7 +64,7 @@ class DQNAgent:
         print(f"/inputEcho;modelPath;{self.model_path}", flush=True)
 
         if os.path.isfile(self.model_path):
-            self.policy_net.load_state_dict(torch.load(self.model_path))
+            self.policy_net.load_state_dict(torch.load(self.model_path), map_location=device)
             self.policy_net.train()
             print(f"/infoOutput;model loaded", flush=True)
 
