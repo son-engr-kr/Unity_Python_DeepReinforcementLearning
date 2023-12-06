@@ -53,7 +53,7 @@ class DQNAgent:
         self.gamma = 0.99
         self.eps_start = 0.9
         self.eps_end = 0.05
-        self.eps_decay = 200
+        self.eps_decay = 2000
         self.steps_done = 0
         self.model_path = ""
 
@@ -64,7 +64,7 @@ class DQNAgent:
         print(f"/inputEcho;modelPath;{self.model_path}", flush=True)
 
         if os.path.isfile(self.model_path):
-            self.policy_net.load_state_dict(torch.load(self.model_path), map_location=device)
+            self.policy_net.load_state_dict(torch.load(self.model_path, map_location=device))
             self.policy_net.train()
             print(f"/infoOutput;model loaded", flush=True)
 
@@ -79,6 +79,8 @@ class DQNAgent:
 
     def select_action(self, state):
         sample = random.random()
+        #Exploration : Exploitation
+        #ratio decays over steps increase
         eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * \
                         np.exp(-1. * self.steps_done / self.eps_decay)
         self.steps_done += 1
@@ -177,7 +179,7 @@ def train(agent, episodes, state_size, action_size):
 # Hyperparameters
 EPISODES = 1000000
 STATE_SIZE = 12  # 상태 크기 예시
-ACTION_SIZE = 4  # 행동 크기 예시
+ACTION_SIZE = 5  # 행동 크기 예시
 TARGET_UPDATE = 10
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

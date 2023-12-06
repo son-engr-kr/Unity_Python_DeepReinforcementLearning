@@ -21,10 +21,15 @@ public class BallBalancingSystem : MonoBehaviour
     Thread WriteThread;
     float TargetThreshold = 0.1f;
     Label LabelSuccessRate;
+    Label LabelRewardSum;
+    float RewardSum = 0;
+    Label LabelIterationCount;
     void Start()
     {
         var root = GetComponent<UIDocument>().rootVisualElement;
         LabelSuccessRate = root.Q<Label>("LabelSuccessRate");
+        LabelRewardSum = root.Q<Label>("LabelRewardSum");
+        LabelIterationCount = root.Q<Label>("LabelIterationCount");
 
         TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
         TargetVisualization.transform.localScale = Vector3.one * (BallRigidBody.transform.localScale.x + TargetThreshold * 2);
@@ -82,7 +87,7 @@ public class BallBalancingSystem : MonoBehaviour
             {
                 case "/inputRequest;modelPath":
                     {
-                        PythonProcess.StandardInput.WriteLine($"{Application.streamingAssetsPath}/python/pytorch_models/ballbalancing_model.pth");
+                        PythonProcess.StandardInput.WriteLine($"{Application.streamingAssetsPath}/python/pytorch_models/ballbalancing_model_v2.pth");
 
                         break;
                     }
@@ -97,7 +102,7 @@ public class BallBalancingSystem : MonoBehaviour
                 case "/inputRequest;reward":
                     {
                         PythonProcess.StandardInput.WriteLine($"{Reward}");
-
+                        RewardSum += Reward;
                         break;
                     }
                 case "/inputRequest;done":
@@ -107,6 +112,7 @@ public class BallBalancingSystem : MonoBehaviour
                         PythonProcess.StandardInput.WriteLine($"{done}");
                         if (done)
                         {
+                            Thread.Sleep(300);
                             simulationState = SimulationState.NEED_INITIALIZING;
                         }
                         break;
@@ -136,6 +142,11 @@ public class BallBalancingSystem : MonoBehaviour
                             case 3:
                                 {
                                     PlateRZ -= PlateAngularSpeed * DeltaTime;
+                                    break;
+                                }
+                             case 4:
+                                {
+
                                     break;
                                 }
 
@@ -201,12 +212,14 @@ public class BallBalancingSystem : MonoBehaviour
     int FailCount = 0;
     void Update()
     {
+        LabelRewardSum.text = $"{RewardSum:n5}";
         TargetVisualization.transform.position = TargetPosition;
         if (simulationState == SimulationState.NEED_INITIALIZING)
         {
             TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
             PlateRX = 0f;
             PlateRZ = 0f;
+            RewardSum = 0f;
             Reward = 0f;
             BallRigidBody.position = new Vector3(0, 0.3f, 0);
             BallRigidBody.velocity = new Vector3(0, 0f, 0);
@@ -227,6 +240,7 @@ public class BallBalancingSystem : MonoBehaviour
             {
                 LabelSuccessRate.text = $"{SuccessCount / (float)(SuccessCount + FailCount) * 100f:n1}%";
             }
+            LabelIterationCount.text = $"{SuccessCount + FailCount}";
         }
         else if (simulationState == SimulationState.RUNNING)
         {
@@ -245,8 +259,9 @@ public class BallBalancingSystem : MonoBehaviour
             {
                 float xDist = (TargetPosition.x - BallPosition.x);
                 float zDist = (TargetPosition.z - BallPosition.z);
+                float dist = Mathf.Sqrt(xDist * xDist + zDist * zDist);
                 //Reward = Mathf.Exp(-(xDist * xDist + zDist * zDist)) * 0.1f;
-                if ((xDist * xDist + zDist * zDist) < TargetThreshold * TargetThreshold)
+                if (dist < TargetThreshold)
                 {
                     if (!PrevContacted)
                     {
@@ -263,7 +278,7 @@ public class BallBalancingSystem : MonoBehaviour
                     {
                         ContactStartTimeMillis = CurrentTime;
                     }
-                    Reward = timePassedFromContact / 1000f;
+                    Reward = timePassedFromContact  * Mathf.Exp(-dist) / 1000f / 10f;
                     PrevContacted = true;
                 }
                 else
@@ -273,12 +288,12 @@ public class BallBalancingSystem : MonoBehaviour
                         TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
                     }
 
-                    Reward = -0.01f;
+                    Reward = -Mathf.Exp(dist) / Mathf.Exp(2)/1000f;
                     PrevContacted = false;
                     if (CurrentTime - EphisodStartTime > 20 * 1000)
                     {
                         Debug.Log("System: Done due to TimeOver");
-                        Reward = -1f;
+                        //Reward = -1f;
                         simulationState = SimulationState.DONE;
                         FailCount++;
                     }
