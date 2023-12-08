@@ -9,7 +9,7 @@ import itertools
 import traceback
 import os
 # 신경망 정의
-class DQN(nn.Module):
+class DQN(nn.Module):##v5.1
     def __init__(self, state_size, action_size):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(state_size, 64)

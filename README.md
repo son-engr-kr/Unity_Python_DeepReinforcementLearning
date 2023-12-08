@@ -1,5 +1,8 @@
-# guide-unity_python_scripting
-Execute python on unity
+# guide-unity_python_scripting for Deep Reinforcement Learning
+- Execute python on unity
+- TCPIP between unity and python
+- Deep Reinforcement Learning(DRL) without Unity ML-Agent
+
 ## Python install 
 - python version: 3.9.12(64-bit)
 - (option) Do Not Add Python 3.9 to path
@@ -85,12 +88,47 @@ PythonProcess.StandardInput.WriteLine($"{Vector3ToString(BallPosition)},{Vector3
 
 output:
 
-4-Action (RX+, RX-, RZ+, RZ-)
+5-Action (RX+, RX-, RZ+, RZ-, NOTHING)
 
 ## Photo
 ![ballbalancing_capture](readme_img/ballbalancing_capture.png)
-
 ## pytorch model path
 ```
-unity_python\Assets\StreamingAssets\python\pytorch_models/ballbalancing_model.pth
+unity_python\Assets\StreamingAssets\python\pytorch_models/*.pth
 ```
+
+## Version
+
+
+### ballbalancing_model v5.1
+DQN:
+```python
+class DQN(nn.Module):##v5.1
+    def __init__(self, state_size, action_size):
+        super(DQN, self).__init__()
+        self.fc1 = nn.Linear(state_size, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
+        self.relu = nn.ReLU()
+        self.fc4 = nn.Linear(64, action_size)
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.relu(self.fc3(x))
+        return self.fc4(x)
+
+```
+#### ballbalancing_model_v5_1_231209.pth
+- trained 1000 episodes
+- 50~70%
+
+##### reward:
+
+**So far, the linear distance reward system has performed the best.**
+```C#
+Reward += (TargetThreshold-dist)/10f;
+```
+
+
+
