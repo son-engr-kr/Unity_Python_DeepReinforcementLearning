@@ -13,8 +13,8 @@ class DQN(nn.Module):
     def __init__(self, state_size, action_size):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(state_size, 64)
-        self.fc2 = nn.Linear(64, 128)
-        self.fc3 = nn.Linear(128, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
         self.relu = nn.ReLU()
         self.fc4 = nn.Linear(64, action_size)
 
@@ -53,12 +53,12 @@ class DQNAgent:
         self.gamma = 0.99
         self.eps_start = 0.9
         self.eps_end = 0.05
-        self.eps_decay = 1000
+        self.eps_decay = 100
         self.steps_done = 0
         self.model_path = ""
 
 
-        self.model_path = f"{os.path.dirname(__file__)}/../pytorch_models/ballbalancing_model_v4.pth"
+        self.model_path = f"{os.path.dirname(__file__)}/../pytorch_models/ballbalancing_model_v5_1.pth"
         print(f"/inputEcho;modelPath;{self.model_path}", flush=True)
 
         if os.path.isfile(self.model_path):

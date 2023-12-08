@@ -12,7 +12,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     [SerializeField] Rigidbody BallRigidBody;
     [SerializeField] Rigidbody PlateRigidBody;
     [SerializeField] GameObject TargetVisualization;
-    [SerializeField] float PlateAngularSpeed = 300f;
+    float PlateDegree = 30f;
     [SerializeField] float DeltaTime;
     [SerializeField] Material TargetInMaterial;
     [SerializeField] Material TargetOutMaterial;
@@ -22,6 +22,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     Label LabelRewardSum;
     float RewardSum = 0;
     Label LabelIterationCount;
+    int TimeLimitMillis = 20 * 1000;
 
     //python is server(unity can change setting value but python cannot(hard))
     TCPClient PythonTCPClient;
@@ -94,23 +95,23 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                             {
                                 case 0:
                                     {
-                                        PlateRX += PlateAngularSpeed * DeltaTime;
+                                        PlateRX += PlateDegree * DeltaTime;
                                         break;
                                     }
                                 case 1:
                                     {
-                                        PlateRX -= PlateAngularSpeed * DeltaTime;
+                                        PlateRX -= PlateDegree * DeltaTime;
                                         break;
                                     }
                                 case 2:
                                     {
 
-                                        PlateRZ += PlateAngularSpeed * DeltaTime;
+                                        PlateRZ += PlateDegree * DeltaTime;
                                         break;
                                     }
                                 case 3:
                                     {
-                                        PlateRZ -= PlateAngularSpeed * DeltaTime;
+                                        PlateRZ -= PlateDegree * DeltaTime;
                                         break;
                                     }
                                 case 4:
@@ -170,6 +171,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     int FailCount = 0;
 
     bool ActionUpdated = false;
+    float PrevDist;
     void Update()
     {
         LabelRewardSum.text = $"{RewardSum:n5}";
@@ -193,6 +195,10 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             float xTarget = Random.Range(-0.4f, 0.4f);
             float zTarget = Random.Range(-0.4f, 0.4f);
             TargetVisualization.transform.position = new Vector3(xTarget, 0.05f, zTarget);
+
+
+            PrevDist = Mathf.Sqrt(xTarget* xTarget + zTarget * zTarget);
+
             PrevContacted = false;
             EphisodStartTime = CurrentTime;
             ActionUpdated = true;
@@ -214,7 +220,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             if (BallRigidBody.position.y < -1f)
             {
                 Debug.Log("System: Done due to ball falling");
-                Reward = -1f;
+                Reward -= 1f;
                 simulationState = SimulationState.DONE;
                 FailCount++;
 
@@ -224,12 +230,13 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                 float xDist = (TargetVisualization.transform.position.x - BallRigidBody.position.x);
                 float zDist = (TargetVisualization.transform.position.z - BallRigidBody.position.z);
                 float dist = Mathf.Sqrt(xDist * xDist + zDist * zDist);
-                //Reward = Mathf.Exp(-(xDist * xDist + zDist * zDist)) * 0.1f;
+                Reward += (TargetThreshold-dist)/10f;
                 if (dist < TargetThreshold)
                 {
                     if (!PrevContacted)
                     {
                         TargetVisualization.GetComponent<Renderer>().material = TargetInMaterial;
+                        //Reward += 1f;
                     }
                     var timePassedFromContact = CurrentTime - ContactStartTimeMillis;
                     if (PrevContacted && timePassedFromContact > 5000)//5√  ¿ÃªÛ
@@ -242,7 +249,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                     {
                         ContactStartTimeMillis = CurrentTime;
                     }
-                    Reward = timePassedFromContact * Mathf.Exp(-dist) / 1000f / 10f;
+                    //Reward += timePassedFromContact * Mathf.Exp(-dist) / 1000f / 1000f;
                     PrevContacted = true;
                 }
                 else
@@ -250,9 +257,10 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                     if (PrevContacted)
                     {
                         TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
+                        //Reward -= 1f;
                     }
 
-                    Reward = -Mathf.Exp(dist) / Mathf.Exp(2) / 1000f;
+                    //Reward -= Mathf.Exp(dist) / Mathf.Exp(2) / 1000f;
                     PrevContacted = false;
                     if (CurrentTime - EphisodStartTime > 20 * 1000)
                     {
@@ -262,6 +270,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                         FailCount++;
                     }
                 }
+                PrevDist = dist;
             }
         }
 
@@ -290,6 +299,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                 Reward = Reward,
             });
             RewardSum += Reward;
+            Reward = 0;
             ActionUpdated = false;
         }
 
