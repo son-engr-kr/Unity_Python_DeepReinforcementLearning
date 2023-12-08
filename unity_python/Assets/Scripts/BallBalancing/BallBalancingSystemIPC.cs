@@ -6,7 +6,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.UIElements;
 
-public class BallBalancingSystem : MonoBehaviour
+public class BallBalancingSystemIPC : MonoBehaviour
 {
     [SerializeField] Rigidbody BallRigidBody;
     [SerializeField] Rigidbody PlateRigidBody;
@@ -24,6 +24,13 @@ public class BallBalancingSystem : MonoBehaviour
     Label LabelRewardSum;
     float RewardSum = 0;
     Label LabelIterationCount;
+
+    //enum COMMUNICATION_METHOD
+    //{
+    //    IPC,
+    //    TCPIP
+    //}
+    //COMMUNICATION_METHOD CommunicationMethod = COMMUNICATION_METHOD.IPC;
     void Start()
     {
         var root = GetComponent<UIDocument>().rootVisualElement;
