@@ -1,3 +1,10 @@
+## Preview
+![ballbalancing_capture](readme_img/ballbalancing_capture.png)
+## pytorch model path
+```
+unity_python\Assets\StreamingAssets\python\pytorch_models/*.pth
+```
+
 # guide-unity_python_scripting for Deep Reinforcement Learning
 - Execute python on unity
 - TCPIP between unity and python
@@ -90,12 +97,6 @@ output:
 
 5-Action (RX+, RX-, RZ+, RZ-, NOTHING)
 
-## Photo
-![ballbalancing_capture](readme_img/ballbalancing_capture.png)
-## pytorch model path
-```
-unity_python\Assets\StreamingAssets\python\pytorch_models/*.pth
-```
 
 ## Version
 
