@@ -27,7 +27,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     //python is server(unity can change setting value but python cannot(hard))
     TCPClient PythonTCPClient;
 
-    bool ProcessOwner = true;
+    bool ProcessOwner = false;
     void Start()
     {
         //===========test===============
@@ -58,7 +58,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             PythonProcess = new System.Diagnostics.Process();
 
             PythonProcess.StartInfo.FileName = $"{Application.streamingAssetsPath}/python/.venv/Scripts/python.exe";
-            PythonProcess.StartInfo.Arguments = $"{Application.streamingAssetsPath}/python/python_scripts/ball_balancing_tcpip.py";
+            PythonProcess.StartInfo.Arguments = $"{Application.streamingAssetsPath}/python/python_scripts/ball_balancing/ball_balancing_training.py";
 
             PythonProcess.EnableRaisingEvents = true;
             //PythonProcess.StartInfo.CreateNoWindow = true;//true -> no window

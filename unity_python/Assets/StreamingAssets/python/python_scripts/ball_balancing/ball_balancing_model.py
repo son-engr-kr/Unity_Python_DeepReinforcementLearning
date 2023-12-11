@@ -46,7 +46,7 @@ Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'
 
 # DQN 에이전트
 class DQNAgent:
-    def __init__(self, state_size, action_size):
+    def __init__(self, state_size, action_size, device):
         self.state_size = state_size
         self.action_size = action_size
         self.memory = ReplayMemory(10000)
@@ -61,12 +61,17 @@ class DQNAgent:
         self.steps_done = 0
         self.model_path = ""
 
+        self.device = device
+        
+        ##======for training ======
+        self.state = None
+        ##=========================
 
-        self.model_path = f"{os.path.dirname(__file__)}/../pytorch_models/ballbalancing_model_v5_1.pth"
+        self.model_path = f"{os.path.dirname(__file__)}/../../pytorch_models/ballbalancing_model_v5_2.pth"
         print(f"/inputEcho;modelPath;{self.model_path}", flush=True)
 
         if os.path.isfile(self.model_path):
-            self.policy_net.load_state_dict(torch.load(self.model_path, map_location=device))
+            self.policy_net.load_state_dict(torch.load(self.model_path, map_location=self.device))
             self.policy_net.train()
             print(f"model loaded", flush=True)
 
@@ -90,7 +95,7 @@ class DQNAgent:
             with torch.no_grad():
                 return self.policy_net(state).max(1)[1].view(1, 1)
         else:
-            return torch.tensor([[random.randrange(self.action_size)]], device=device, dtype=torch.long)
+            return torch.tensor([[random.randrange(self.action_size)]], device=self.device, dtype=torch.long)
 
     def compute_multistep_return(self, current_index, n_steps, gamma):
         return_value = 0.0
@@ -101,6 +106,9 @@ class DQNAgent:
             if next_state is None:  # 에피소드가 종료된 경우
                 break  # 더 이상 미래 보상을 계산하지 않음
         return return_value
+    def update_and_save_model(self):
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.save_model()
     def optimize_model(self):
         if len(self.memory) < self.batch_size:
             return
@@ -123,7 +131,7 @@ class DQNAgent:
         batch = Transition(*zip(*transitions))
         #tensor([True, False, True]) (next_state가 None이면 False)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                                batch.next_state)), device=device, dtype=torch.bool)
+                                                batch.next_state)), device=self.device, dtype=torch.bool)
         # tensor([next_state0, next_state2]) - dim[2,input_len]
         non_final_next_states = torch.cat([s for s in batch.next_state
                                             if s is not None])
@@ -139,12 +147,12 @@ class DQNAgent:
         # reward_batch = torch.cat(batch.reward) # one-step
 
         multistep_returns = torch.tensor([self.compute_multistep_return(idx, 10, self.gamma)
-                                  for idx in indices], device=device)#multi-step
+                                  for idx in indices], device=self.device)#multi-step
 
         # dim[128, action_size(5)]
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
         # dim[128]
-        next_state_values = torch.zeros(self.batch_size, device=device)
+        next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
         # expected_state_action_values = (next_state_values * self.gamma) + reward_batch
         expected_state_action_values = multistep_returns
@@ -155,106 +163,112 @@ class DQNAgent:
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+    def next_step(self, next_state, reward, is_done):
+        if self.state is None:
+            self.state = next_state
+            return None
+        else:
+            # print(f"/debugOutput: iter:{t}", flush=True)
 
-# 메인 학습 루프
-def train(agent, episodes, state_size, action_size):
-    try:
-        for episode in range(episodes):
-            print(f"ephisode {episode}")
-            tcpip_protocol.send_request(episode)
-            while True:
-                with tcpip_protocol.state_lock:
-                    if tcpip_protocol.ball_balancing_all_updated:
-                        tcpip_protocol.ball_balancing_all_updated = False
-                        # Unity로부터 초기 상태 및 보상 받기
-                        state = [
-                            tcpip_protocol.ball_balancing_state.BallPositionX,
-                            tcpip_protocol.ball_balancing_state.BallPositionZ,
+            # 행동 선택 및 Unity로 보내기
+            action = self.select_action(self.state)
 
-                            tcpip_protocol.ball_balancing_state.BallSpeedX,
-                            tcpip_protocol.ball_balancing_state.BallSpeedZ,
+            if not is_done:
+                pass
+                # next_state = torch.tensor([next_state], device=device, dtype=torch.float)
+            else:
+                next_state = None
 
-                            tcpip_protocol.ball_balancing_state.PlateRX,
-                            tcpip_protocol.ball_balancing_state.PlateRZ,
+            # 메모리에 경험 저장
+            self.memory.push(self.state, action, next_state, reward)
 
-                            tcpip_protocol.ball_balancing_state.TargetPositionX,
-                            tcpip_protocol.ball_balancing_state.TargetPositionZ,
-                        ]
+            # 상태 업데이트
+            self.state = next_state
 
-                        break
-            state = torch.tensor([state], device=device, dtype=torch.float)
-            for t in itertools.count():
-                # print(f"/debugOutput: iter:{t}", flush=True)
-
-                # 행동 선택 및 Unity로 보내기
-                action = agent.select_action(state)
-                tcpip_protocol.send_action(int(action.flatten().tolist()[0]))
+            # 모델 최적화
+            self.optimize_model()
+            if is_done:
+                print("episode done")
+                self.steps_done+=1
+            return action
+    # 메인 학습 루프
+    '''
+    def train(self, episodes):
+        try:
+            for episode in range(episodes):
+                print(f"ephisode {episode}")
+                tcpip_protocol.send_request(episode)
                 while True:
                     with tcpip_protocol.state_lock:
                         if tcpip_protocol.ball_balancing_all_updated:
                             tcpip_protocol.ball_balancing_all_updated = False
+                            # Unity로부터 초기 상태 및 보상 받기
+                            state = [
+                                tcpip_protocol.ball_balancing_state.BallPositionX,
+                                tcpip_protocol.ball_balancing_state.BallPositionZ,
+
+                                tcpip_protocol.ball_balancing_state.BallSpeedX,
+                                tcpip_protocol.ball_balancing_state.BallSpeedZ,
+
+                                tcpip_protocol.ball_balancing_state.PlateRX,
+                                tcpip_protocol.ball_balancing_state.PlateRZ,
+
+                                tcpip_protocol.ball_balancing_state.TargetPositionX,
+                                tcpip_protocol.ball_balancing_state.TargetPositionZ,
+                            ]
+
                             break
-                # Unity로부터 다음 상태 및 보상 받기
-                next_state = [
-                    tcpip_protocol.ball_balancing_state.BallPositionX,
-                    tcpip_protocol.ball_balancing_state.BallPositionZ,
+                state = torch.tensor([state], device=device, dtype=torch.float)
+                for t in itertools.count():
+                    # print(f"/debugOutput: iter:{t}", flush=True)
 
-                    tcpip_protocol.ball_balancing_state.BallSpeedX,
-                    tcpip_protocol.ball_balancing_state.BallSpeedZ,
+                    # 행동 선택 및 Unity로 보내기
+                    action = self.select_action(state)
+                    tcpip_protocol.send_action(int(action.flatten().tolist()[0]))
+                    while True:
+                        with tcpip_protocol.state_lock:
+                            if tcpip_protocol.ball_balancing_all_updated:
+                                tcpip_protocol.ball_balancing_all_updated = False
+                                break
+                    # Unity로부터 다음 상태 및 보상 받기
+                    next_state = [
+                        tcpip_protocol.ball_balancing_state.BallPositionX,
+                        tcpip_protocol.ball_balancing_state.BallPositionZ,
 
-                    tcpip_protocol.ball_balancing_state.PlateRX,
-                    tcpip_protocol.ball_balancing_state.PlateRZ,
+                        tcpip_protocol.ball_balancing_state.BallSpeedX,
+                        tcpip_protocol.ball_balancing_state.BallSpeedZ,
 
-                    tcpip_protocol.ball_balancing_state.TargetPositionX,
-                    tcpip_protocol.ball_balancing_state.TargetPositionZ,
-                ]
-                reward = torch.tensor([tcpip_protocol.ball_balancing_reward], device=device)
+                        tcpip_protocol.ball_balancing_state.PlateRX,
+                        tcpip_protocol.ball_balancing_state.PlateRZ,
 
-                if not tcpip_protocol.ball_balancing_done:
-                    next_state = torch.tensor([next_state], device=device, dtype=torch.float)
-                else:
-                    next_state = None
+                        tcpip_protocol.ball_balancing_state.TargetPositionX,
+                        tcpip_protocol.ball_balancing_state.TargetPositionZ,
+                    ]
+                    reward = torch.tensor([tcpip_protocol.ball_balancing_reward], device=device)
 
-                # 메모리에 경험 저장
-                agent.memory.push(state, action, next_state, reward)
+                    if not tcpip_protocol.ball_balancing_done:
+                        next_state = torch.tensor([next_state], device=device, dtype=torch.float)
+                    else:
+                        next_state = None
 
-                # 상태 업데이트
-                state = next_state
+                    # 메모리에 경험 저장
+                    self.memory.push(state, action, next_state, reward)
 
-                # 모델 최적화
-                agent.optimize_model()
-                if tcpip_protocol.ball_balancing_done:
-                    print("episode done")
-                    agent.steps_done+=1
-                    break
+                    # 상태 업데이트
+                    state = next_state
 
-            # 대상 신경망 업데이트
-            if episode % TARGET_UPDATE == 0:
-                agent.target_net.load_state_dict(agent.policy_net.state_dict())
-                agent.save_model()
-    except Exception as e:
-        tb = traceback.format_exc()
-        print(f"/errorOutput;{tb}")
+                    # 모델 최적화
+                    self.optimize_model()
+                    if tcpip_protocol.ball_balancing_done:
+                        print("episode done")
+                        self.steps_done+=1
+                        break
 
-print(f"current script file dir:{os.path.dirname(__file__)}")
-###===================server=====================
-print("server start")
-import tcpip_protocol
-
-###===================server=====================
-
-# Hyperparameters
-EPISODES = 1000000
-STATE_SIZE = 8  # 상태 크기 예시
-ACTION_SIZE = 5  # 행동 크기 예시
-TARGET_UPDATE = 10
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# 에이전트 초기화
-agent = DQNAgent(STATE_SIZE, ACTION_SIZE)
-
-
-
-
-# 학습 시작
-train(agent, EPISODES, STATE_SIZE, ACTION_SIZE)
+                # 대상 신경망 업데이트
+                if episode % TARGET_UPDATE == 0:
+                    self.target_net.load_state_dict(self.policy_net.state_dict())
+                    self.save_model()
+        except Exception as e:
+            tb = traceback.format_exc()
+            print(f"/errorOutput;{tb}")
+    '''

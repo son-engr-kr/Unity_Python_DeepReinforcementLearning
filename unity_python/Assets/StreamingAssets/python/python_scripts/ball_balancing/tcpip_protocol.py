@@ -1,5 +1,4 @@
-import socket, time
-import marshal
+import socket
 import ctypes
 import threading
 import json
@@ -49,26 +48,6 @@ class BALL_BALANCING_NEXT_EPISODE_REQUIRE_TO_UNITY:
 ##!=========JSON Packet=============
 
 
-
-def to_json(obj)->str:
-    return json.dumps(obj.__dict__)
-def from_json(class_, json_str):
-    data = json.loads(json_str)
-    return class_(**data)
-
-def send_request(ep_count):
-    body_bytes = json.dumps(BALL_BALANCING_NEXT_EPISODE_REQUIRE_TO_UNITY(ep_count).__dict__).encode(encoding = 'UTF-8', errors = 'strict')
-    header_bytes = bytearray(HEADER(b"JSON",b"BB_EPRQS",len(body_bytes)))
-    current_client.sendall(header_bytes + body_bytes)
-def send_action(action:int):
-    body_bytes = json.dumps(BALL_BALANCING_ACTION(action).__dict__).encode(encoding = 'UTF-8', errors = 'strict')
-    header_bytes = bytearray(HEADER(b"JSON",b"BB_ACTN_",len(body_bytes)))
-    current_client.sendall(header_bytes + body_bytes)
-def read_header(client_socket)->HEADER:
-    byte_data = client_socket.recv(ctypes.sizeof(HEADER))
-    if not byte_data:
-        return None
-    return HEADER.from_buffer_copy(byte_data)
 
 # def get_state()->BALL_BALANCING_STATE:
 #     return ball_balancing_state
@@ -122,20 +101,3 @@ def handle_client_connection(client_socket):
         client_socket.close()
 
 
-host = 'localhost'
-port = 11200
-
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-server_socket.bind((host, port))
-print(f"Server start, host:{host}, port:{port}")
-
-server_socket.listen()
-current_client = None
-current_client, address = server_socket.accept()
-print(f"Accepted connection from {address}")
-
-# 각 클라이언트 연결을 처리하기 위한 새 스레드 시작
-client_thread = threading.Thread(target=handle_client_connection, args=(current_client,))
-client_thread.start()
