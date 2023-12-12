@@ -41,15 +41,16 @@ Assets/StreamingAssets/python/.venv/
 StreamingAssets folder can align both editor and build environment.
 
 ### active.bat modify(only when move venv folder)
+In my experience, It runs well without activate
 
+but for whom need it..
 ```
-set VIRTUAL_ENV=[Absolutepath]\..\.venv
+set VIRTUAL_ENV=[Absolutepath]\.venv
 ```
 =>
 ```
-set VIRTUAL_ENV=%cd%\..\.venv
+set VIRTUAL_ENV=%cd%\..\..\.venv
 ```
-
 ## module
 
 ### numpy
@@ -64,7 +65,12 @@ install numpy for just module import test
 In this project, I installed CUDA 12.1
 #### pytorch install
 ```
-[venv dir]\.venv\Scripts/python.exe -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+[venv dir]\.venv\Scripts\python.exe -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+or
+
+cd to parent of ./venv and
+.\.venv\Scripts\python.exe -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 ```
 
 ## Unity

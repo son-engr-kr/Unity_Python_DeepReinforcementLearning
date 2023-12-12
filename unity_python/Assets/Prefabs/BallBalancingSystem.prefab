@@ -325,8 +325,6 @@ GameObject:
   m_Component:
   - component: {fileID: 5531938327170708713}
   - component: {fileID: 3816800732914257073}
-  - component: {fileID: 667935626264417657}
-  - component: {fileID: 99329121957855987}
   m_Layer: 0
   m_Name: BallBalancingSystem
   m_TagString: Untagged
@@ -378,53 +376,6 @@ MonoBehaviour:
   CurrentTime: 0
   EphisodStartTime: 0
   PrevContacted: 0
---- !u!114 &667935626264417657
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3066721648975226531}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a34de1d74021e264a9e0018c5b43ee8e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  BallRigidBody: {fileID: 8904235246279491321}
-  PlateRigidBody: {fileID: 7553379688215653386}
-  TargetVisualization: {fileID: 5863144539175681121}
-  PlateAngularSpeed: 30
-  DeltaTime: 0
-  TargetInMaterial: {fileID: 2100000, guid: cad15815cb7402f4ab9ec14fd2567137, type: 2}
-  TargetOutMaterial: {fileID: 2100000, guid: e18de2b4c36db2b4786d8f60615637be, type: 2}
-  BallPosition: {x: 0, y: 0, z: 0}
-  BallSpeed: {x: 0, y: 0, z: 0}
-  PlateRX: 0
-  PlateRZ: 0
-  TargetPosition: {x: 0, y: 0, z: 0}
-  Reward: 0
-  simulationState: 0
-  ContactStartTimeMillis: 0
-  CurrentTime: 0
-  EphisodStartTime: 0
-  PrevContacted: 0
---- !u!114 &99329121957855987
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 3066721648975226531}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  m_PanelSettings: {fileID: 11400000, guid: 5051c5fdf753ff148a4e216c062c3f2a, type: 2}
-  m_ParentUI: {fileID: 0}
-  sourceAsset: {fileID: 9197481963319205126, guid: 8337788cd8721f949a382a47ba9c87a6,
-    type: 3}
-  m_SortingOrder: 0
 --- !u!1 &3425295850678770786
 GameObject:
   m_ObjectHideFlags: 0

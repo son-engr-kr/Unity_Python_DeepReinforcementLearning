@@ -17,10 +17,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     [SerializeField] Material TargetInMaterial;
     [SerializeField] Material TargetOutMaterial;
     float TargetThreshold = 0.1f;
-    Label LabelSuccessRate;
-    Label LabelRewardSum;
     float RewardSum = 0;
-    Label LabelIterationCount;
     int TimeLimitMillis = 20 * 1000;
 
     //python is server(unity can change setting value but python cannot(hard))
@@ -50,10 +47,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
 
 
-        var root = GetComponent<UIDocument>().rootVisualElement;
-        LabelSuccessRate = root.Q<Label>("LabelSuccessRate");
-        LabelRewardSum = root.Q<Label>("LabelRewardSum");
-        LabelIterationCount = root.Q<Label>("LabelIterationCount");
+        
 
         TargetVisualization.GetComponent<Renderer>().material = TargetOutMaterial;
         TargetVisualization.transform.localScale = Vector3.one * (BallRigidBody.transform.localScale.x + TargetThreshold * 2);
@@ -164,7 +158,6 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     float PrevDist;
     void Update()
     {
-        LabelRewardSum.text = $"{RewardSum:n5}";
         //TargetVisualization.transform.position = TargetVisualization.transform.position;
         if(simulationState == SimulationState.NEED_REQUEST)
         {
@@ -201,15 +194,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             PrevContacted = false;
             EphisodStartTime = CurrentTime;
             ActionUpdated = true;
-            if (SuccessCount + FailCount == 0)
-            {
-                LabelSuccessRate.text = "---%";
-            }
-            else
-            {
-                LabelSuccessRate.text = $"{SuccessCount / (float)(SuccessCount + FailCount) * 100f:n1}%";
-            }
-            LabelIterationCount.text = $"{SuccessCount + FailCount}";
+            
             
             simulationState = SimulationState.RUNNING;
         }
