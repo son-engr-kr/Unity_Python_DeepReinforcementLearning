@@ -519,8 +519,9 @@ GameObject:
   m_Component:
   - component: {fileID: 672699373}
   - component: {fileID: 672699372}
+  - component: {fileID: 672699374}
   m_Layer: 0
-  m_Name: UISystem
+  m_Name: ManagementSystem
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -556,8 +557,20 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_RootOrder: 3
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &672699374
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672699371}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d7b7e73200a9f74aa9ab26864e7c812, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &735161434
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1469,7 +1482,7 @@ PrefabInstance:
     - target: {fileID: 5531938327170708713, guid: d6074af6a2bd77e40ad1e6e01846fc82,
         type: 3}
       propertyPath: m_RootOrder
-      value: 2
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 5531938327170708713, guid: d6074af6a2bd77e40ad1e6e01846fc82,
         type: 3}

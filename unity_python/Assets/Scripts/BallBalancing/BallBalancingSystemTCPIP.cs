@@ -16,7 +16,6 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     [SerializeField] float DeltaTime;
     [SerializeField] Material TargetInMaterial;
     [SerializeField] Material TargetOutMaterial;
-    System.Diagnostics.Process PythonProcess;
     float TargetThreshold = 0.1f;
     Label LabelSuccessRate;
     Label LabelRewardSum;
@@ -27,7 +26,6 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     //python is server(unity can change setting value but python cannot(hard))
     TCPClient PythonTCPClient;
 
-    bool ProcessOwner = false;
     void Start()
     {
 
@@ -65,23 +63,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
         TargetVisualization.transform.localPosition = new Vector3(0, 0, 0.5f);
 
-        if (ProcessOwner)
-        {
-            PythonProcess = new System.Diagnostics.Process();
-
-            PythonProcess.StartInfo.FileName = $"{Application.streamingAssetsPath}/python/.venv/Scripts/python.exe";
-            PythonProcess.StartInfo.Arguments = $"{Application.streamingAssetsPath}/python/python_scripts/ball_balancing/ball_balancing_training.py";
-
-            PythonProcess.EnableRaisingEvents = true;
-            //PythonProcess.StartInfo.CreateNoWindow = true;//true -> no window
-            //PythonProcess.StartInfo.UseShellExecute = false;
-            //PythonProcess.StartInfo.RedirectStandardOutput = true;
-            //PythonProcess.StartInfo.RedirectStandardInput = true;
-            //PythonProcess.StartInfo.RedirectStandardError = true;
-
-            Debug.Log("Process start!");
-            PythonProcess.Start();
-        }
+        
 
 
 
@@ -151,15 +133,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             }
         };
     }
-    void ProcessWaitLoop()
-    {
-
-        if (ProcessOwner)
-        {
-            PythonProcess.WaitForExit();
-        }
-
-    }
+    
 
     [Header("State")]
     [SerializeField] float PlateRX;
