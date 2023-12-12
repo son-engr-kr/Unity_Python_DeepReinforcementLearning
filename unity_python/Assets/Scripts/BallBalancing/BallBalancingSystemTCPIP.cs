@@ -30,6 +30,8 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     bool ProcessOwner = false;
     void Start()
     {
+
+        
         //===========test===============
 
         var jsonString = JsonUtility.ToJson(new BALL_BALANCING_REWARD() { Reward = 3.141592f, });
@@ -38,6 +40,16 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
         Debug.Log($"JSON test2: {convertedObject.Reward}");
 
         //!=========test=================
+
+
+        //================initialize===================
+
+        simulationState = SimulationState.NEED_REQUEST;
+        PrevContacted = false;
+
+        //=============================================
+
+
 
 
         var root = GetComponent<UIDocument>().rootVisualElement;
@@ -51,7 +63,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
         DeltaTime = Time.deltaTime;
 
-        TargetVisualization.transform.position = new Vector3(0, 0, 0.5f);
+        TargetVisualization.transform.localPosition = new Vector3(0, 0, 0.5f);
 
         if (ProcessOwner)
         {
@@ -121,7 +133,10 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                                     }
 
                             }
-                            ActionUpdated = true;
+                            if(simulationState == SimulationState.RUNNING)
+                            {
+                                ActionUpdated = true;
+                            }
                             break;
                         }
                     case TCPProtocol.SUBJECT_ENUM_8LEN.BB_EPRQS:
@@ -155,15 +170,16 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
     enum SimulationState
     {
+        NEED_REQUEST,
         NEED_INITIALIZING,
         RUNNING,
         DONE
     }
-    [SerializeField] SimulationState simulationState = SimulationState.DONE;
+    [SerializeField] SimulationState simulationState;
     [SerializeField] long ContactStartTimeMillis;
     [SerializeField] long CurrentTime;
     [SerializeField] long EphisodStartTime;
-    [SerializeField] bool PrevContacted = false;
+    [SerializeField] bool PrevContacted;
 
     int PrevEphisodeCount = -1;
     int EphisodeCount = -1;
@@ -175,8 +191,16 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     void Update()
     {
         LabelRewardSum.text = $"{RewardSum:n5}";
-        TargetVisualization.transform.position = TargetVisualization.transform.position;
-        if(PrevEphisodeCount != EphisodeCount)
+        //TargetVisualization.transform.position = TargetVisualization.transform.position;
+        if(simulationState == SimulationState.NEED_REQUEST)
+        {
+            BallRigidBody.angularVelocity = new Vector3(0, 0f, 0);
+            BallRigidBody.transform.localPosition = new Vector3(0, 0.3f, 0);
+            BallRigidBody.constraints = RigidbodyConstraints.FreezeAll;
+            PlateRigidBody.rotation = Quaternion.Euler(0, 0, 0);
+
+        }
+        if (PrevEphisodeCount != EphisodeCount)//NEED_REQUEST -> NEED_INITIALIZING
         {
             PrevEphisodeCount = EphisodeCount;
             simulationState = SimulationState.NEED_INITIALIZING;
@@ -188,13 +212,14 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             PlateRZ = 0f;
             RewardSum = 0f;
             Reward = 0f;
-            BallRigidBody.position = new Vector3(0, 0.3f, 0);
+            BallRigidBody.transform.localPosition = new Vector3(0, 0.3f, 0);
             BallRigidBody.velocity = new Vector3(0, 0f, 0);
             BallRigidBody.angularVelocity = new Vector3(0, 0f, 0);
+            BallRigidBody.constraints = RigidbodyConstraints.None;
 
             float xTarget = Random.Range(-0.4f, 0.4f);
             float zTarget = Random.Range(-0.4f, 0.4f);
-            TargetVisualization.transform.position = new Vector3(xTarget, 0.05f, zTarget);
+            TargetVisualization.transform.localPosition = new Vector3(xTarget, 0.05f, zTarget);
 
 
             PrevDist = Mathf.Sqrt(xTarget* xTarget + zTarget * zTarget);
@@ -217,7 +242,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
         else if (simulationState == SimulationState.RUNNING)
         {
             PlateRigidBody.rotation = Quaternion.Euler(PlateRX, 0, PlateRZ);
-            if (BallRigidBody.position.y < -1f)
+            if (BallRigidBody.transform.localPosition.y < -1f)
             {
                 Debug.Log("System: Done due to ball falling");
                 Reward -= 1f;
@@ -274,16 +299,20 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             }
         }
 
-        if (ActionUpdated)
+        if (ActionUpdated || simulationState == SimulationState.DONE)
         {
+            if(simulationState == SimulationState.DONE)
+            {
+                simulationState = SimulationState.NEED_REQUEST;
+            }
             PythonTCPClient.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_DONE_.ToString(), new TCPProtocol.BALL_BALANCING_DONE()
             {
                 Done = simulationState != SimulationState.RUNNING,
             });
             PythonTCPClient.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_STATE.ToString(), new TCPProtocol.BALL_BALANCING_STATE()
             {
-                BallPositionX = this.BallRigidBody.position.x,
-                BallPositionZ = this.BallRigidBody.position.z,
+                BallPositionX = this.BallRigidBody.transform.localPosition.x,
+                BallPositionZ = this.BallRigidBody.transform.localPosition.z,
 
                 BallSpeedX = this.BallRigidBody.velocity.x,
                 BallSpeedZ = this.BallRigidBody.velocity.z,
@@ -291,8 +320,8 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                 PlateRX = this.PlateRX,
                 PlateRZ = this.PlateRZ,
 
-                TargetPositionX = this.TargetVisualization.transform.position.x,
-                TargetPositionZ = this.TargetVisualization.transform.position.z,
+                TargetPositionX = this.TargetVisualization.transform.localPosition.x,
+                TargetPositionZ = this.TargetVisualization.transform.localPosition.z,
             });
             PythonTCPClient.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_REWRD.ToString(), new TCPProtocol.BALL_BALANCING_REWARD()
             {

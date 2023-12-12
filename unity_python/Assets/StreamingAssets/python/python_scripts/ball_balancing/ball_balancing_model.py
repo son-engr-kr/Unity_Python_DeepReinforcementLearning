@@ -12,11 +12,11 @@ import os
 class DQN(nn.Module):##v5.1
     def __init__(self, state_size, action_size):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_size, 64)
-        self.fc2 = nn.Linear(64, 64)
-        self.fc3 = nn.Linear(64, 64)
+        self.fc1 = nn.Linear(state_size, 128)
+        self.fc2 = nn.Linear(128, 128)
+        self.fc3 = nn.Linear(128, 128)
         self.relu = nn.ReLU()
-        self.fc4 = nn.Linear(64, action_size)
+        self.fc4 = nn.Linear(128, action_size)
 
     def forward(self, x):
         x = self.relu(self.fc1(x))
@@ -28,6 +28,9 @@ class DQN(nn.Module):##v5.1
 class ReplayMemory:
     def __init__(self, capacity):
         self.memory = deque([], maxlen=capacity)
+    def move_to_other(self, other_memory):
+        other_memory.memory.extend(self.memory)
+        self.memory.clear()
 
     def push(self, state, action, next_state, reward):
         self.memory.append((state, action, next_state, reward))
@@ -43,60 +46,15 @@ class ReplayMemory:
         return len(self.memory)
 
 Transition = namedtuple('Transition', ('state', 'action', 'next_state', 'reward'))
-
-# DQN 에이전트
-class DQNAgent:
+class NetOptimizerPackage:
     def __init__(self, state_size, action_size, device):
-        self.state_size = state_size
-        self.action_size = action_size
         self.memory = ReplayMemory(10000)
-        self.policy_net = DQN(state_size, action_size).to(device)
-        self.target_net = DQN(state_size, action_size).to(device)
-        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.001)
-        self.batch_size = 128
+        self.net = DQN(state_size, action_size).to(device)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.00001)
+        self.batch_size = 64
         self.gamma = 0.99
-        self.eps_start = 0.9
-        self.eps_end = 0.05
-        self.eps_decay = 100
-        self.steps_done = 0
-        self.model_path = ""
 
         self.device = device
-        
-        ##======for training ======
-        self.state = None
-        ##=========================
-
-        self.model_path = f"{os.path.dirname(__file__)}/../../pytorch_models/ballbalancing_model_v5_2.pth"
-        print(f"/inputEcho;modelPath;{self.model_path}", flush=True)
-
-        if os.path.isfile(self.model_path):
-            self.policy_net.load_state_dict(torch.load(self.model_path, map_location=self.device))
-            self.policy_net.train()
-            print(f"model loaded", flush=True)
-
-        else:
-            print(f";No saved model found. Starting with a new model.", flush=True)
-
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.target_net.eval()
-    def save_model(self):
-        torch.save(self.policy_net.state_dict(), self.model_path)
-        print(f"Model saved", flush=True)
-
-    def select_action(self, state):
-        sample = random.random()
-        #Exploration : Exploitation
-        #ratio decays over steps increase
-        eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * \
-                        np.exp(-1. * self.steps_done / self.eps_decay)
-        # self.steps_done += 1
-        if sample > eps_threshold:
-            with torch.no_grad():
-                return self.policy_net(state).max(1)[1].view(1, 1)
-        else:
-            return torch.tensor([[random.randrange(self.action_size)]], device=self.device, dtype=torch.long)
-
     def compute_multistep_return(self, current_index, n_steps, gamma):
         return_value = 0.0
         for i in range(n_steps):
@@ -106,10 +64,8 @@ class DQNAgent:
             if next_state is None:  # 에피소드가 종료된 경우
                 break  # 더 이상 미래 보상을 계산하지 않음
         return return_value
-    def update_and_save_model(self):
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.save_model()
-    def optimize_model(self):
+
+    def optimize(self):
         if len(self.memory) < self.batch_size:
             return
         '''
@@ -146,27 +102,91 @@ class DQNAgent:
         action_batch = torch.cat(batch.action)
         # reward_batch = torch.cat(batch.reward) # one-step
 
-        multistep_returns = torch.tensor([self.compute_multistep_return(idx, 10, self.gamma)
+        multistep_returns = torch.tensor([self.compute_multistep_return(idx, 5, self.gamma)
                                   for idx in indices], device=self.device)#multi-step
 
         # dim[128, action_size(5)]
-        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
+        state_action_values = self.net(state_batch).gather(1, action_batch)
         # dim[128]
         next_state_values = torch.zeros(self.batch_size, device=self.device)
-        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
-        # expected_state_action_values = (next_state_values * self.gamma) + reward_batch
-        expected_state_action_values = multistep_returns
+        next_state_values[non_final_mask] = self.net(non_final_next_states).max(1)[0].detach()
+        expected_state_action_values = (next_state_values * self.gamma) + multistep_returns
+        # expected_state_action_values = multistep_returns
 
         loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        
+        print(f"loss: {loss.item():.6f}")
+        
         self.optimizer.zero_grad()
         loss.backward()
-        for param in self.policy_net.parameters():
+        for param in self.net.parameters():
             param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
+# DQN 에이전트
+class DQNAgent:
+    def __init__(self, state_size, action_size, device, global_net_opt_package):
+        self.state_size = state_size
+        self.action_size = action_size
+        self.global_net_opt_package = global_net_opt_package
+        # print(f"global_net: {self.global_net_opt_package.net}")
+        self.target_net = DQN(state_size, action_size).to(device)
+        
+        self.local_memory = ReplayMemory(10000)
+        self.eps_start = 0.99
+        self.eps_end = 0.05
+        self.eps_decay = 500
+        self.steps_done = 0
+        # self.model_path = ""
+
+        self.device = device
+        
+        ##======for training ======
+        self.state = None
+        ##=========================
+
+        # self.model_path = f"{os.path.dirname(__file__)}/../../pytorch_models/ballbalancing_model_v5_2.pth"
+        # print(f"/inputEcho;modelPath;{self.model_path}", flush=True)
+
+        # if os.path.isfile(self.model_path):
+        #     self.global_net_opt_package.net.load_state_dict(torch.load(self.model_path, map_location=self.device))
+        #     self.global_net_opt_package.net.train()
+        #     print(f"model loaded", flush=True)
+
+        # else:
+        #     print(f";No saved model found. Starting with a new model.", flush=True)
+
+        self.target_net.load_state_dict(self.global_net_opt_package.net.state_dict())
+        self.target_net.eval()
+    # def save_model(self):
+    #     torch.save(self.global_net_opt_package.net.state_dict(), self.model_path)
+    #     print(f"Model saved", flush=True)
+
+    def select_action(self, state):
+        sample = random.random()
+        #Exploration : Exploitation
+        #ratio decays over steps increase
+        eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * \
+                        np.exp(-1. * self.steps_done / self.eps_decay)
+        # self.steps_done += 1
+        if sample > eps_threshold:
+            with torch.no_grad():
+                return self.global_net_opt_package.net(state).max(1)[1].view(1, 1)
+        else:
+            return torch.tensor([[random.randrange(self.action_size)]], device=self.device, dtype=torch.long)
+
+    def update_local_model(self):
+        self.target_net.load_state_dict(self.global_net_opt_package.net.state_dict())
+
+    # def update_and_save_model(self):
+    #     self.save_model()
+
     def next_step(self, next_state, reward, is_done):
         if self.state is None:
             self.state = next_state
-            return None
+
+            action = self.select_action(self.state)
+            # return None
+            return action
         else:
             # print(f"/debugOutput: iter:{t}", flush=True)
 
@@ -180,14 +200,13 @@ class DQNAgent:
                 next_state = None
 
             # 메모리에 경험 저장
-            self.memory.push(self.state, action, next_state, reward)
+            self.local_memory.push(self.state, action, next_state, reward)
 
             # 상태 업데이트
             self.state = next_state
 
             # 모델 최적화
-            self.optimize_model()
+            # self.optimize_local_model()
             if is_done:
-                print("episode done")
                 self.steps_done+=1
             return action
