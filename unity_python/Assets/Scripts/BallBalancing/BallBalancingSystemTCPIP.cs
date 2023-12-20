@@ -20,6 +20,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
     float RewardSum = 0;
     int TimeLimitMillis = 20 * 1000;
 
+    int _collisionStack = 0;
     //python is server(unity can change setting value but python cannot(hard))
     TCPClient PythonTCPClient;
 
@@ -57,7 +58,43 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
         TargetVisualization.transform.localPosition = new Vector3(0, 0, 0.5f);
 
-        
+        //=====================contact====================
+
+        var collisionActors = GetComponentsInChildren<CollisionActor>();
+        foreach(var collisionActor in collisionActors)
+        {
+            collisionActor.CollisionEntered += (Collision collision) =>
+            {
+                if(collision.gameObject != PlateRigidBody.gameObject)
+                {
+                    _collisionStack++;
+                }
+                //if(collision.gameObject != PlateRigidBody.gameObject)
+                //{
+                //    _collisionStack++;
+                //    Debug.Log($"collide: {name}-{collision.gameObject.name}");
+
+                //}
+                //foreach (ContactPoint c in collision.contacts)
+                //{
+                //    //Debug.Log(c.thisCollider.name);
+                //    Debug.Log($"collision enter: {c.thisCollider.name}");
+                //    if(c.thisCollider.gameObject != PlateRigidBody.gameObject)
+                //    {
+                //        _collisionStack++;
+                //    }
+
+                //}
+            };
+            collisionActor.CollisionExited += (Collision collision) =>
+            {
+                if (collision.gameObject != PlateRigidBody.gameObject)
+                {
+                    _collisionStack--;
+                }
+            };
+        }
+        //================================================
 
 
 
@@ -118,7 +155,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                     case TCPProtocol.SUBJECT_ENUM_8LEN.BB_EPRQS:
                         {
                             var packetConverted = JsonUtility.FromJson<TCPProtocol.BALL_BALANCING_NEXT_EPISODE_REQUIRE_TO_UNITY>(Encoding.UTF8.GetString(bodyBytes));
-                            Debug.Log($"EP REQ!!- {packetConverted.EPISODE_COUNT}");
+                            //Debug.Log($"EP REQ!!- {packetConverted.EPISODE_COUNT}");
                             EphisodeCount = packetConverted.EPISODE_COUNT;
 
                             break;
@@ -201,9 +238,15 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
         else if (simulationState == SimulationState.RUNNING)
         {
             PlateRigidBody.rotation = Quaternion.Euler(PlateRX, 0, PlateRZ);
+
+            if (_collisionStack > 0)
+            {
+                Reward -= 0.1f;
+            }
+
             if (BallRigidBody.transform.localPosition.y < -1f)
             {
-                Debug.Log("System: Done due to ball falling");
+                //Debug.Log("System: Done due to ball falling");
                 Reward -= 1f;
                 simulationState = SimulationState.DONE;
                 FailCount++;
@@ -225,7 +268,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                     var timePassedFromContact = CurrentTime - ContactStartTimeMillis;
                     if (PrevContacted && timePassedFromContact > 5000)//5ÃÊ ÀÌ»ó
                     {
-                        Debug.Log("System: Done due to ball goal");
+                        //Debug.Log("System: Done due to ball goal");
                         simulationState = SimulationState.DONE;
                         SuccessCount++;
                     }
@@ -246,9 +289,9 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
                     //Reward -= Mathf.Exp(dist) / Mathf.Exp(2) / 1000f;
                     PrevContacted = false;
-                    if (CurrentTime - EphisodStartTime > 20 * 1000)
+                    if (CurrentTime - EphisodStartTime > 5 * 1000)
                     {
-                        Debug.Log("System: Done due to TimeOver");
+                        //Debug.Log("System: Done due to TimeOver");
                         //Reward = -1f;
                         simulationState = SimulationState.DONE;
                         FailCount++;
@@ -276,8 +319,8 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                 BallSpeedX = this.BallRigidBody.velocity.x,
                 BallSpeedZ = this.BallRigidBody.velocity.z,
 
-                PlateRX = this.PlateRX,
-                PlateRZ = this.PlateRZ,
+                PlateRX = this.PlateRX/10f,
+                PlateRZ = this.PlateRZ/10f,
 
                 TargetPositionX = this.TargetVisualization.transform.localPosition.x,
                 TargetPositionZ = this.TargetVisualization.transform.localPosition.z,

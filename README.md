@@ -1,4 +1,5 @@
 ## Preview
+![multi agent](readme_img/ballbalancing_multi_agent_capture.png)
 ![ballbalancing_capture](readme_img/ballbalancing_capture.png)
 ## pytorch model path
 ```
@@ -137,5 +138,53 @@ class DQN(nn.Module):##v5.1
 Reward += (TargetThreshold-dist)/10f;
 ```
 
+### ballbalancing_model v6
+- Add guide wall(negative reward when collision)
+- multi agent
+
+- condition:
+```python
+self.optimizer = optim.Adam(self.net.parameters(), lr=0.001)
+self.batch_size = 64
+self.gamma = 0.99
+```
+
+```python
+self.local_memory = ReplayMemory(10000)
+self.eps_start = 0.99
+self.eps_end = 0.05
+self.eps_decay = 50
+self.steps_done = 0
+```
+DQN:
+```python
+class DQN(nn.Module):##v6
+    def __init__(self, state_size, action_size):
+        super(DQN, self).__init__()
+        self.fc1 = nn.Linear(state_size, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
+        self.relu = nn.ReLU()
+        self.fc4 = nn.Linear(64, action_size)
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.relu(self.fc3(x))
+        return self.fc4(x)
+```
+
+#### reward:
+
+**So far, the linear distance reward system has performed the best.**
+```C#
+Reward += (TargetThreshold-dist)/10f;
+```
 
 
+#### Normalization
+
+```C#
+PlateRX = this.PlateRX/10f,
+PlateRZ = this.PlateRZ/10f,
+```

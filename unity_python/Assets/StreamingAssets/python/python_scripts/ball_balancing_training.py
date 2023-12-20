@@ -1,4 +1,3 @@
-from http import client
 import ball_balancing.ball_balancing_model as md
 import ball_balancing.tcpip_protocol as protocol
 import torch
@@ -41,7 +40,7 @@ class TrainingClient:
         self.wait_for_optimize = False
         self.client_id = client_id
     @classmethod
-    def global_optimize_and_save_model(cls):
+    def global_optimize_and_save_model(cls, is_update_target):
         cls.local_train_done_count = 0
         for client in TrainingClient.client_list:
             with TrainingClient.lock:
@@ -49,8 +48,10 @@ class TrainingClient:
                 client.agent.local_memory.move_to_other(TrainingClient.global_net_opt_package.memory)
                 # print(f"memory move(af): {len(client.agent.local_memory)} -> {len(TrainingClient.global_net_opt_package.memory)}")
         with TrainingClient.lock:
-            for idx in range(1):
+            for idx in range(10):
                 cls.global_net_opt_package.optimize()
+            if is_update_target:
+                cls.global_net_opt_package.update_target_net()
         time.sleep(0.3)
         for client in TrainingClient.client_list:
             client.agent.update_local_model()
@@ -133,7 +134,7 @@ class TrainingClient:
                     action = self.agent.next_step(state, reward,is_done)
                     if action is not None:#여기서 send_action을 안보내니 다음 반응도 전부 없었던 것임. 이제 None일 리 없으니 잘 됨
                         self.send_action(int(action.flatten().tolist()[0]))
-                    if is_done and episode_count%5 == 0:
+                    if is_done and episode_count%1 == 0:
                         optimize_flag = False
                         with TrainingClient.lock:
                             self.wait_for_optimize = True
@@ -141,7 +142,11 @@ class TrainingClient:
                             if len(TrainingClient.client_list) == TrainingClient.local_train_done_count:
                                 optimize_flag = True
                         if optimize_flag:
-                            TrainingClient.global_optimize_and_save_model()
+                            if episode_count % 10 == 0:
+                                TrainingClient.global_optimize_and_save_model(True)
+                            else:
+                                TrainingClient.global_optimize_and_save_model(False)
+
                         while True:
                             time.sleep(0.3)
                             with TrainingClient.lock:
@@ -187,7 +192,7 @@ if __name__ == "__main__":
 
     server_socket.listen()
     TrainingClient.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    TrainingClient.model_path = f"{os.path.dirname(__file__)}/../pytorch_models/ballbalancing_model_v5_3.pth"
+    TrainingClient.model_path = f"{os.path.dirname(__file__)}/../pytorch_models/ballbalancing_model_v6.pth"
     TrainingClient.global_net_opt_package = md.NetOptimizerPackage(TrainingClient.state_size,TrainingClient.action_size,TrainingClient.device)
     if os.path.isfile(TrainingClient.model_path):
         TrainingClient.global_net_opt_package.net.load_state_dict(torch.load(TrainingClient.model_path, map_location=TrainingClient.device))

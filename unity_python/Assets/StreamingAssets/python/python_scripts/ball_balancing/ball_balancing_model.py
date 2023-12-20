@@ -9,14 +9,14 @@ import itertools
 import traceback
 import os
 # 신경망 정의
-class DQN(nn.Module):##v5.1
+class DQN(nn.Module):##v6
     def __init__(self, state_size, action_size):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(state_size, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, 128)
+        self.fc1 = nn.Linear(state_size, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
         self.relu = nn.ReLU()
-        self.fc4 = nn.Linear(128, action_size)
+        self.fc4 = nn.Linear(64, action_size)
 
     def forward(self, x):
         x = self.relu(self.fc1(x))
@@ -50,11 +50,15 @@ class NetOptimizerPackage:
     def __init__(self, state_size, action_size, device):
         self.memory = ReplayMemory(10000)
         self.net = DQN(state_size, action_size).to(device)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=0.00001)
+        self.target_net = DQN(state_size, action_size).to(device)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.001)
         self.batch_size = 64
         self.gamma = 0.99
-
         self.device = device
+
+        self.update_target_net()
+        self.target_net.eval()
+        
     def compute_multistep_return(self, current_index, n_steps, gamma):
         return_value = 0.0
         for i in range(n_steps):
@@ -64,7 +68,8 @@ class NetOptimizerPackage:
             if next_state is None:  # 에피소드가 종료된 경우
                 break  # 더 이상 미래 보상을 계산하지 않음
         return return_value
-
+    def update_target_net(self):
+        self.target_net.load_state_dict(self.net.state_dict())
     def optimize(self):
         if len(self.memory) < self.batch_size:
             return
@@ -100,20 +105,27 @@ class NetOptimizerPackage:
                                             
         state_batch = torch.cat(batch.state)
         action_batch = torch.cat(batch.action)
-        # reward_batch = torch.cat(batch.reward) # one-step
-
-        multistep_returns = torch.tensor([self.compute_multistep_return(idx, 5, self.gamma)
-                                  for idx in indices], device=self.device)#multi-step
+        reward_batch = torch.cat(batch.reward) # one-step
+        # print(f"reward_batch.shape:{reward_batch.shape}")
+        # multistep_returns = torch.tensor([self.compute_multistep_return(idx, 5, self.gamma)
+        #                           for idx in indices], device=self.device)#multi-step
 
         # dim[128, action_size(5)]
         state_action_values = self.net(state_batch).gather(1, action_batch)
+        # print(f"state_action_values.shape:{state_action_values.shape}")
+        
         # dim[128]
         next_state_values = torch.zeros(self.batch_size, device=self.device)
-        next_state_values[non_final_mask] = self.net(non_final_next_states).max(1)[0].detach()
-        expected_state_action_values = (next_state_values * self.gamma) + multistep_returns
+        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
+        next_state_values = next_state_values.unsqueeze(1)
+        # print(f"next_state_values.shape:{next_state_values.shape}")
+        
+        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+        # expected_state_action_values = (next_state_values * self.gamma) + multistep_returns
         # expected_state_action_values = multistep_returns
 
-        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+        # loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.view(-1, 1))
         
         print(f"loss: {loss.item():.6f}")
         
@@ -134,7 +146,7 @@ class DQNAgent:
         self.local_memory = ReplayMemory(10000)
         self.eps_start = 0.99
         self.eps_end = 0.05
-        self.eps_decay = 500
+        self.eps_decay = 50
         self.steps_done = 0
         # self.model_path = ""
 
