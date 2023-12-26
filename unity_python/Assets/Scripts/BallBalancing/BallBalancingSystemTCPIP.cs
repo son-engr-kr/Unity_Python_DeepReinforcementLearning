@@ -22,7 +22,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
     int _collisionStack = 0;
     //python is server(unity can change setting value but python cannot(hard))
-    TCPClient PythonTCPClient;
+    TcpClientWrapper _tcpClientWrapper;
 
     void Start()
     {
@@ -98,12 +98,12 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
 
 
 
-        PythonTCPClient = gameObject.AddComponent<TCPClient>();
-        PythonTCPClient.IPAddress = "127.0.0.1";
-        PythonTCPClient.PortNum = 11200;
+        _tcpClientWrapper = gameObject.AddComponent<TcpClientWrapper>();
+        _tcpClientWrapper.IPAddress = "127.0.0.1";
+        _tcpClientWrapper.PortNum = 11200;
 
-        PythonTCPClient.StartTCPClient();
-        PythonTCPClient.PacketReceiveEvent += (string subjectCode8, byte[] bodyBytes)=>{
+        _tcpClientWrapper.StartTCPClient();
+        _tcpClientWrapper.PacketReceiveEvent += (string subjectCode8, byte[] bodyBytes)=>{
             TCPProtocol.SUBJECT_ENUM_8LEN packetSubjectEnum;
             var success = System.Enum.TryParse(subjectCode8, out packetSubjectEnum);
             //Debug.Log($"TCP RECV: {subjectCode8} - {Encoding.UTF8.GetString(bodyBytes)}");
@@ -307,11 +307,11 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
             {
                 simulationState = SimulationState.NEED_REQUEST;
             }
-            PythonTCPClient.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_DONE_.ToString(), new TCPProtocol.BALL_BALANCING_DONE()
+            _tcpClientWrapper.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_DONE_.ToString(), new TCPProtocol.BALL_BALANCING_DONE()
             {
                 Done = simulationState != SimulationState.RUNNING,
             });
-            PythonTCPClient.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_STATE.ToString(), new TCPProtocol.BALL_BALANCING_STATE()
+            _tcpClientWrapper.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_STATE.ToString(), new TCPProtocol.BALL_BALANCING_STATE()
             {
                 BallPositionX = this.BallRigidBody.transform.localPosition.x,
                 BallPositionZ = this.BallRigidBody.transform.localPosition.z,
@@ -325,7 +325,7 @@ public class BallBalancingSystemTCPIP : MonoBehaviour
                 TargetPositionX = this.TargetVisualization.transform.localPosition.x,
                 TargetPositionZ = this.TargetVisualization.transform.localPosition.z,
             });
-            PythonTCPClient.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_REWRD.ToString(), new TCPProtocol.BALL_BALANCING_REWARD()
+            _tcpClientWrapper.EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.BB_REWRD.ToString(), new TCPProtocol.BALL_BALANCING_REWARD()
             {
                 Reward = Reward,
             });

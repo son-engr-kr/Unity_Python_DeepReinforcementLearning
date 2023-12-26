@@ -9,14 +9,14 @@ using System.Threading;
 using UnityEngine;
 using UnityEngine.SocialPlatforms;
 
-public class TCPClient : MonoBehaviour
+public class TcpClientWrapper : MonoBehaviour
 {
-    private TcpClient ClientSocket;
-    NetworkStream ClientStream;
+    private TcpClient _clientSocket;
+    NetworkStream _clientStream;
     public string IPAddress;
     public int PortNum;
 
-    Mutex SocketMutex = new();
+    Mutex _socketMutex = new();
     private Thread ConnectionThread;
     private Thread ReceiveThread;
     private Thread SendThread;
@@ -28,10 +28,10 @@ public class TCPClient : MonoBehaviour
 
     //public Action<string, TCPProtocol.PacketBase> PacketReceiveEvent;
     public Action<string, byte[]> PacketReceiveEvent;
-    bool RunClient = false;
+    bool _runClient = false;
     public void StartTCPClient()
     {
-        RunClient = true;
+        _runClient = true;
 
         ConnectionThread = new Thread(new ThreadStart(TCPSocketConnectLoop));
         ConnectionThread.Start();
@@ -49,15 +49,15 @@ public class TCPClient : MonoBehaviour
     }
     void SocketClose()
     {
-        ClientStream?.Close();
-        ClientStream = null;
-        ClientSocket?.Close();
-        ClientSocket = null;
+        _clientStream?.Close();
+        _clientStream = null;
+        _clientSocket?.Close();
+        _clientSocket = null;
 
     }
     public void StopTCPClient()
     {
-        RunClient = false;
+        _runClient = false;
         SocketConnectionEvent?.Invoke(TCPEvent.NORMAL_CLOSED);
 
     }
@@ -89,21 +89,21 @@ public class TCPClient : MonoBehaviour
     long LastHeartbitDatetime;
     void TCPSocketConnectLoop()
     {
-        while (RunClient)
+        while (_runClient)
         {
 
-            SocketMutex.WaitOne();
+            _socketMutex.WaitOne();
 
-            if (ClientSocket == null)
+            if (_clientSocket == null)
             {
                 Thread.Sleep(500);
                 try
                 {
-                    TCPConnect(out ClientSocket, IPAddress, PortNum);
+                    TCPConnect(out _clientSocket, IPAddress, PortNum);
                     LastHeartbitDatetime = TimeManager.GetRealNowTimeMillis();
-                    if (ClientSocket != null && ClientSocket.Connected)
+                    if (_clientSocket != null && _clientSocket.Connected)
                     {
-                        ClientStream = ClientSocket.GetStream();
+                        _clientStream = _clientSocket.GetStream();
                         SocketConnectionEvent?.Invoke(TCPEvent.CONNECTED);
                     }
 
@@ -122,7 +122,7 @@ public class TCPClient : MonoBehaviour
                 }
                 finally
                 {
-                    if (!RunClient)
+                    if (!_runClient)
                     {
                         SocketConnectionEvent?.Invoke(TCPEvent.NORMAL_CLOSED);
                     }
@@ -135,19 +135,19 @@ public class TCPClient : MonoBehaviour
                     
                 }
             }
-            SocketMutex.ReleaseMutex();
+            _socketMutex.ReleaseMutex();
 
 
             Thread.Sleep(1000);
         }
-        SocketMutex.WaitOne();
+        _socketMutex.WaitOne();
         SocketClose();
-        SocketMutex.ReleaseMutex();
+        _socketMutex.ReleaseMutex();
     }
     void HeartbeatLoop()
     {
 
-        while (RunClient && ClientStream != null)
+        while (_runClient && _clientStream != null)
         {
             EnqueuePacket(TCPProtocol.SUBJECT_ENUM_8LEN.HTBT____.ToString(), new TCPProtocol.HEARTBEAT() { SEND_UNIXTIME = TimeManager.GetRealNowTimeMillis() });
 
@@ -169,7 +169,7 @@ public class TCPClient : MonoBehaviour
     void SendLoop()
     {
         Thread.Sleep(100);
-        while (RunClient)
+        while (_runClient)
         {
             SendQueueMutex.WaitOne();
             KeyValuePair<string, TCPProtocol.PacketBase> packetBase;
@@ -202,9 +202,9 @@ public class TCPClient : MonoBehaviour
 
         };
         var headBytes = TCPProtocol.StructToByte(headStruct);
-        SocketMutex.WaitOne();
-        SendByteBuffer(headBytes.Concat(bodyBytes).ToArray(), ClientStream);
-        SocketMutex.ReleaseMutex();
+        _socketMutex.WaitOne();
+        SendByteBuffer(headBytes.Concat(bodyBytes).ToArray(), _clientStream);
+        _socketMutex.ReleaseMutex();
     }
     void JsonPacketSend(string SubjectCode, TCPProtocol.PacketBase bodyPacket)
     {
@@ -216,9 +216,9 @@ public class TCPClient : MonoBehaviour
             BODY_SIZE = bodyBytes.Length,
         };
         var headBytes = TCPProtocol.StructToByte(headStruct);
-        SocketMutex.WaitOne();
-        SendByteBuffer(headBytes.Concat(bodyBytes).ToArray(), ClientStream);
-        SocketMutex.ReleaseMutex();
+        _socketMutex.WaitOne();
+        SendByteBuffer(headBytes.Concat(bodyBytes).ToArray(), _clientStream);
+        _socketMutex.ReleaseMutex();
     }
     private void SendByteBuffer(Byte[] buffer, NetworkStream stream)
     {
@@ -252,23 +252,23 @@ public class TCPClient : MonoBehaviour
     {
 
         Thread.Sleep(100);
-        while (RunClient)
+        while (_runClient)
         {
-            SocketMutex.WaitOne();
-            if (ClientSocket != null)
+            _socketMutex.WaitOne();
+            if (_clientSocket != null)
             {
                 try
                 {
-                    if (ClientStream.DataAvailable)
+                    if (_clientStream.DataAvailable)
                     {
                         var headStruct = new TCPProtocol.HEADER();
                         Byte[] headByte = new Byte[Marshal.SizeOf(headStruct)];
-                        ClientStream.Read(headByte, 0, headByte.Length);
+                        _clientStream.Read(headByte, 0, headByte.Length);
                         headStruct = TCPProtocol.ByteToStruct<TCPProtocol.HEADER>(headByte);
                         //Debug.Log($"TCP: Reveived: header, length: {headByte.Length} | headStruct.BODY_SIZE: {headStruct.BODY_SIZE}");
 
                         Byte[] bodyByte = new Byte[headStruct.BODY_SIZE];//ETX±îÁö
-                        ClientStream.Read(bodyByte, 0, bodyByte.Length);
+                        _clientStream.Read(bodyByte, 0, bodyByte.Length);
                         //Debug.Log($"TCP: Reveived: body, length: {bodyByte.Length} | {Encoding.Default.GetString(bodyByte)}");
 
 
@@ -289,7 +289,7 @@ public class TCPClient : MonoBehaviour
                 }
 
             }
-            SocketMutex.ReleaseMutex();
+            _socketMutex.ReleaseMutex();
 
             Thread.Sleep(5);
         }
