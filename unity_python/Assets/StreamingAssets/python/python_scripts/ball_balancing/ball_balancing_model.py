@@ -147,7 +147,7 @@ class DQNAgent:
         self.eps_start = 0.99
         self.eps_end = 0.05
         self.eps_decay = 50
-        self.steps_done = 0
+        self.steps_done = 100
         # self.model_path = ""
 
         self.device = device
